@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PhishBuster Chatbot</title>
+  <style>
+      body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #0d1117;
+      color: #c9d1d9;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #161b22;
+      padding: 30px;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 28px;
+      color: #58a6ff;
+    }
+    #intro {
+      text-align: center;
+      padding: 50px;
+    }
+    #chat-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+    }
+    #chatbox {
+      width: 90%;
+      max-width: 600px;
+      height: 400px;
+      background-color: #1c1f26;
+      border-radius: 12px;
+      padding: 15px;
+      margin-top: 20px;
+      overflow-y: auto;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    }
+    .message {
+      max-width: 75%;
+      padding: 10px 15px;
+      margin: 10px;
+      border-radius: 15px;
+      line-height: 1.4;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    .user {
+      background-color: #30363d;
+      align-self: flex-end;
+      margin-left: auto;
+      color: #f0f6fc;
+      border-bottom-right-radius: 0;
+    }
+    .bot {
+      background-color: #238636;
+      align-self: flex-start;
+      margin-right: auto;
+      color: #fff;
+      border-bottom-left-radius: 0;
+    }
+    #input-area {
+      margin-top: auto;
+      padding: 15px;
+      width: 90%;
+      max-width: 600px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    input, button {
+      font-size: 14px;
+    }
+    #inputBox {
+      flex: 1;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+    }
+    #sendBtn, #voiceToggleBtn, #startBtn {
+      padding: 12px 15px;
+      background-color: #2ea043;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    #sendBtn:hover, #voiceToggleBtn:hover, #startBtn:hover {
+      background-color: #238636;
+    }
+
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PhishBuster Chatbot</h1>
+    <p style="color:#8b949e; font-size:14px;">Detect phishing • Get tips • Train yourself</p>
+  </header>
+
+  <div id="intro">
+    <p>Welcome to PhishBuster! Click start to begin chatting with the AI. Get phishing analysis, learn tips, and take a mini-quiz!</p>
+    <button id="startBtn">Start</button>
+  </div>
+
+  <div id="chat-container">
+    <div id="chatbox"></div>
+    <div id="input-area">
+      <input type="text" id="inputBox" placeholder="Type a message..." />
+      <button id="sendBtn">Send</button>
+      <button id="voiceToggleBtn">🔊 Voice: ON</button>
+    </div>
+  </div>
+
+  <script>
+    let quizMode = false;
+    let currentQuestion = 0;
+    let score = 0;
+    let awaitingReply = false;
+    let voiceEnabled = true;
+    let selectedQuestions = [];
+    let userName = "";
+    let justEndedConversation = false; 
+
+    const chatBox = document.getElementById("chatbox");
+    const inputBox = document.getElementById("inputBox");
+
+    const phishingKeywords = ["urgent", "verify", "click", "update", "login", "account", "password", "expired", "confirm", "limited", "suspend", "payment", "invoice", "security alert"];
+
+    const phishingTips = {
+      "urgent": "⚠️ Tip: Phishing messages often create urgency to rush your decision.",
+      "verify": "⚠️ Tip: Always verify the sender by checking the email address closely.",
+      "click": "⚠️ Tip: Avoid clicking on links from unknown or unexpected sources.",
+      "update": "⚠️ Tip: Don’t update personal info unless you’re on a verified site.",
+      "login": "⚠️ Tip: Be cautious of login pages sent via email.",
+      "account": "⚠️ Tip: Never share your account details with unknown sources.",
+      "password": "⚠️ Tip: Use a strong and unique password. Don’t share it.",
+      "expired": "⚠️ Tip: Expiry warnings are common bait. Confirm with the service directly.",
+      "confirm": "⚠️ Tip: Don’t confirm sensitive details unless you’re sure of the source.",
+      "limited": "⚠️ Tip: Limited-time offers often push users to act without thinking.",
+      "suspend": "⚠️ Tip: Threats of account suspension are a common phishing tactic.",
+      "payment": "⚠️ Tip: Never make payments from links sent in suspicious messages.",
+      "invoice": "⚠️ Tip: Fake invoices may contain malware. Always verify.",
+      "security alert": "⚠️ Tip: Check if the alert actually came from your provider’s website."
+    };
+
+    const quizQuestions = [
+      { question: "Which of the following is a common sign of a phishing email?", options: ["A. Poor grammar and spelling mistakes", "B. Proper branding and grammar", "C. No attachments", "D. Sent from your known contact"], answer: "A" },
+      { question: "What should you do if you suspect an email is a phishing attempt?", options: ["A. Click the link to confirm", "B. Delete it or report it", "C. Reply and ask", "D. Forward to others"], answer: "B" },
+      { question: "Phishing emails often create a sense of?", options: ["A. Security", "B. Relaxation", "C. Urgency", "D. Humor"], answer: "C" },
+      { question: "Which of these is a secure email practice?", options: ["A. Clicking on all links", "B. Verifying sender's email", "C. Ignoring HTTPS", "D. Using same password"], answer: "B" },
+      { question: "HTTPS in a website URL means?", options: ["A. It’s a government site", "B. It’s secure", "C. It’s fake", "D. It’s slow"], answer: "B" },
+      {"question": "Which of the following could be a phishing site?", "options": ["A. google.com", "B. amazon.in", "C. g00gle.com", "D. wikipedia.org"], "answer": "C"},
+      {"question": "Why should you avoid using the same password for multiple sites?", "options": ["A. Easier to remember", "B. Prevents hacking", "C. Faster login", "D. No reason"], "answer": "B"},
+      {"question": "Phishing messages often ask you to?", "options": ["A. Go outside", "B. Change background", "C. Click links urgently", "D. Play music"], "answer": "C"},
+      {"question": "What is spear phishing?", "options": ["A. General spam", "B. Targeted phishing to specific person", "C. Fishing with a spear", "D. Phishing on social media"], "answer": "B"},
+      {"question": "Multi-Factor Authentication (MFA) helps prevent phishing by?", "options": ["A. Making you type more", "B. Sending OTP", "C. Avoiding phone use", "D. Ignoring passwords"], "answer": "B"},
+      {"question": "What is a common phishing lure?", "options": ["A. Free prize", "B. Science facts", "C. Real estate ads", "D. Cartoons"], "answer": "A"},
+      {"question": "Which domain is most likely to be suspicious?", "options": ["A. login.paypa1.com", "B. paypal.com", "C. amazon.com", "D. microsoft.com"], "answer": "A"},
+      {"question": "Phishing scams may ask you to provide?", "options": ["A. Your opinion", "B. Your favorite color", "C. Personal information", "D. Joke"], "answer": "C"},
+      {"question": "A suspicious attachment might have?", "options": ["A. .doc", "B. .pdf", "C. .exe", "D. .jpg"], "answer": "C"},
+      {"question": "If you click a phishing link accidentally, what should you do?", "options": ["A. Logout immediately", "B. Report and change passwords", "C. Ignore", "D. Click again"], "answer": "B"},
+      {"question": "Social engineering attacks are based on?", "options": ["A. Firewalls", "B. Trickery and manipulation", "C. Coding", "D. Hardware issues"], "answer": "B"},
+      {"question": "An email that looks exactly like a real brand but is fake is called?", "options": ["A. Clone email", "B. Branded email", "C. Spoofed email", "D. Spam"], "answer": "C"},
+      {"question": "What does phishing steal?", "options": ["A. Food", "B. Identity and information", "C. Emails only", "D. Nothing"], "answer": "B"},
+      {"question": "Why avoid using public Wi-Fi for banking?", "options": ["A. Slow speed", "B. Battery drain", "C. Security risks", "D. Noisy environment"], "answer": "C"},
+      {"question": "How do phishers get your contact?", "options": ["A. Random guesses", "B. Social media and leaks", "C. Typing every number", "D. Phone book"], "answer": "B"},
+      {"question": "What is whaling in phishing?", "options": ["A. Targeting big organizations", "B. Ocean fishing", "C. SMS scams", "D. Video spam"], "answer": "A"},
+      {"question": "The best way to identify phishing is by?", "options": ["A. Reading carefully", "B. Speed reading", "C. Ignoring emails", "D. Clicking everything"], "answer": "A"},
+      {"question": "Hovering over links can help by?", "options": ["A. Showing animation", "B. Revealing actual URL", "C. Deleting the mail", "D. Fixing errors"], "answer": "B"},
+      {"question": "Smishing refers to phishing via?", "options": ["A. Phone call", "B. Text message", "C. Facebook", "D. Email"], "answer": "B"},
+      {"question": "What tool can protect from phishing?", "options": ["A. VPN", "B. Antivirus", "C. Firewalls", "D. All of these"], "answer": "D"},
+      {"question": "Phishing can happen through?", "options": ["A. Email only", "B. Social media only", "C. Various online platforms", "D. None"], "answer": "C"},
+      {"question": "A fake login page is used to?", "options": ["A. Help users", "B. Teach login", "C. Steal credentials", "D. Redirect to Google"], "answer": "C"},
+      {"question": "Which file type is often dangerous?", "options": ["A. .txt", "B. .exe", "C. .png", "D. .docx"], "answer": "B"},
+      {"question": "Too-good-to-be-true offers often indicate?", "options": ["A. Discounts", "B. Legitimate emails", "C. Scams", "D. Celebration"], "answer": "C"},
+      {"question": "Voice phishing is called?", "options": ["A. Voiphing", "B. Vishing", "C. Smishing", "D. Phonishing"], "answer": "B"}
+    ];
+
+    // Array to hold speech utterances for sequential playback
+    let speechQueue = [];
+    let isSpeaking = false;
+
+    function appendMessage(text, sender) {
+      const messageDiv = document.createElement("div");
+      messageDiv.className = `message ${sender}`;
+      messageDiv.textContent = text;
+      chatBox.appendChild(messageDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // Modified speakReply to queue utterances
+    function speakReply(text, callback = null) {
+      if (!voiceEnabled) {
+          if (callback) callback(); // If voice is off, just call the callback immediately
+          return;
+      }
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-US";
+
+      utterance.onend = () => {
+          isSpeaking = false;
+          speechQueue.shift(); // Remove the current utterance from the queue
+          if (callback) callback(); // Call the callback if provided
+          processSpeechQueue(); // Process the next item in the queue
+      };
+
+      utterance.onerror = (event) => {
+          console.error("SpeechSynthesisUtterance.onerror", event);
+          isSpeaking = false;
+          speechQueue.shift();
+          if (callback) callback();
+          processSpeechQueue();
+      };
+
+      speechQueue.push(utterance);
+      if (!isSpeaking) {
+          processSpeechQueue();
+      }
+    }
+
+    function processSpeechQueue() {
+        if (speechQueue.length > 0 && !isSpeaking) {
+            isSpeaking = true;
+            speechSynthesis.speak(speechQueue[0]);
+        }
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    function runQuiz() {
+      quizMode = true;
+      currentQuestion = 0;
+      score = 0;
+      selectedQuestions = [...quizQuestions];
+      shuffle(selectedQuestions);
+      selectedQuestions = selectedQuestions.slice(0, 3);
+      
+      const quizIntroText = "💡 Let's start the mini quiz!";
+      appendMessage(quizIntroText, "bot");
+      
+      // Ensure the intro text is spoken before the first question
+      speakReply(quizIntroText, askQuestion); // Call askQuestion after intro speaks
+    }
+
+    function askQuestion() {
+      if (currentQuestion < selectedQuestions.length) {
+        const q = selectedQuestions[currentQuestion];
+        const displayText = `🔍 Q${currentQuestion + 1}: ${q.question}\n${q.options.join("\n")}`;
+        appendMessage(displayText, "bot");
+        speakReply(`${q.question}. Options are: ${q.options.join(', ')}`);
+      } else {
+        appendMessage(`🎉 Quiz complete, ${userName}! Your score: ${score}/3`, "bot");
+        speakReply(`Quiz complete ${userName}. Your score is ${score} out of 3.`, () => {
+            const nextActionPrompt = "Do you have another message you’d like me to check or would you like to take a quick quiz, " + userName + "?";
+            appendMessage(nextActionPrompt, "bot");
+            speakReply(nextActionPrompt);
+            awaitingReply = true;
+        });
+        quizMode = false;
+        justEndedConversation = false; 
+      }
+    }
+
+    function handleQuizAnswer(msg) {
+      const correct = selectedQuestions[currentQuestion].answer.toLowerCase();
+      if (msg.trim().toLowerCase() === correct.toLowerCase()) {
+        score++;
+        appendMessage("✅ Correct!", "bot");
+        speakReply("Correct.", () => {
+            currentQuestion++;
+            setTimeout(askQuestion, 500); // Short delay before next question
+        });
+      } else {
+        appendMessage(`❌ Incorrect. Answer: ${selectedQuestions[currentQuestion].answer}`, "bot");
+        speakReply(`Incorrect. The correct answer is: ${selectedQuestions[currentQuestion].answer}`, () => {
+            currentQuestion++;
+            setTimeout(askQuestion, 500); // Short delay before next question
+        });
+      }
+    }
+
+    function detectPhishing(msg) {
+      const msgLower = msg.toLowerCase();
+      for (const word of phishingKeywords) {
+        if (msgLower.includes(word)) {
+          return {
+            text: "⚠️ This message may be a phishing attempt.",
+            mitigation: true,
+            tips: phishingTips[word] || "🛡️ Tip: Be cautious. Don’t share personal details unless you are sure about the source."
+          };
+        }
+      }
+      return { text: "✅ This message appears to be safe.", mitigation: false };
+    }
+
+    function handleSend() {
+      const msg = inputBox.value.trim();
+      if (!msg) return;
+      appendMessage(msg, "user");
+      inputBox.value = "";
+
+      // Clear any pending speech when the user types
+      speechSynthesis.cancel(); 
+      speechQueue = []; // Clear the queue too
+      isSpeaking = false;
+
+
+      if (!userName) {
+        userName = msg;
+        const greet = `Nice to meet you, ${userName}! Please send me a message you suspect might be phishing.`;
+        appendMessage(greet, "bot");
+        speakReply(greet);
+        return;
+      }
+
+      const lowerMsg = msg.toLowerCase();
+
+      if (justEndedConversation && (lowerMsg.includes("thanks") || lowerMsg.includes("thank you") || lowerMsg.includes("bye") || lowerMsg.includes("goodbye"))) {
+          const ackMsg = "You're most welcome, " + userName + "! It was a pleasure helping you. Take care!";
+          appendMessage(ackMsg, "bot");
+          speakReply(ackMsg);
+          justEndedConversation = false; 
+          return;
+      }
+      justEndedConversation = false; 
+
+      if (quizMode) {
+        return handleQuizAnswer(msg); 
+      }
+
+      if (awaitingReply) {
+        if (lowerMsg.includes("yes")) {
+          const promptMsg = "Great, " + userName + "! Please send me the message you'd like me to analyze.";
+          appendMessage(promptMsg, "bot");
+          speakReply(promptMsg);
+          awaitingReply = false;
+        } else if (lowerMsg.includes("no")) {
+          const byeMsg = "Okay, " + userName + "! Let me know if you need help again.";
+          appendMessage(byeMsg, "bot");
+          speakReply(byeMsg);
+          awaitingReply = false;
+          justEndedConversation = true; 
+        } else if (lowerMsg.includes("quick quiz") || lowerMsg.includes("quiz")) {
+          appendMessage("Awesome, " + userName + "! Let's start the quiz!", "bot");
+          speakReply("Awesome, " + userName + "! Let's start the quiz!", runQuiz); // Call runQuiz after the "Awesome" message speaks
+          awaitingReply = false;
+        } else {
+          const clarifyMsg = "I'm not sure I understood, " + userName + ". Do you want me to check another message or take the quiz?";
+          appendMessage(clarifyMsg, "bot");
+          speakReply(clarifyMsg);
+        }
+        return; 
+      }
+
+      if (lowerMsg.includes("quick quiz") || lowerMsg.includes("quiz")) {
+        appendMessage("Alright, " + userName + "! Let's start the quiz!", "bot");
+        speakReply("Alright, " + userName + "! Let's start the quiz!", runQuiz); // Call runQuiz after the "Alright" message speaks
+        return; 
+      }
+
+      const result = detectPhishing(msg);
+      appendMessage(result.text, "bot");
+      // If there are mitigation tips, speak the detection message first, then the tips, then start quiz
+      if (result.mitigation) {
+          speakReply(result.text, () => {
+              const mitigationText = result.tips;
+              appendMessage(mitigationText, "bot");
+              speakReply(mitigationText, runQuiz); // Start quiz after mitigation tip speaks
+          });
+      } else {
+          // If no phishing detected, speak detection message, then offer options
+          speakReply(result.text, () => {
+              const nextActionPrompt = "Do you have another message you’d like me to check or would you like to take a quick quiz, " + userName + "?";
+              appendMessage(nextActionPrompt, "bot");
+              speakReply(nextActionPrompt);
+              awaitingReply = true;
+          });
+      }
+    }
+
+    document.getElementById("sendBtn").addEventListener("click", handleSend);
+    inputBox.addEventListener("keypress", e => {
+      if (e.key === "Enter") handleSend();
+    });
+
+    document.getElementById("voiceToggleBtn").addEventListener("click", () => {
+      voiceEnabled = !voiceEnabled;
+      document.getElementById("voiceToggleBtn").textContent = voiceEnabled ? "🔊 Voice: ON" : "🔇 Voice: OFF";
+      // Cancel any ongoing speech if voice is toggled off
+      if (!voiceEnabled) {
+          speechSynthesis.cancel();
+          speechQueue = [];
+          isSpeaking = false;
+      }
+    });
+
+    document.getElementById("startBtn").addEventListener("click", () => {
+      document.getElementById("intro").style.display = "none";
+      document.getElementById("chat-container").style.display = "flex";
+      appendMessage("👋 Hello! I'm PhishBuster. What's your name?", "bot");
+      speakReply("Hello! I'm PhishBuster. What's your name?");
+    });
+  </script>
+</body>
+</html>
