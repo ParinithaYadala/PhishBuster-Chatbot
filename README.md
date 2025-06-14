@@ -74,12 +74,6 @@ PhishBuster is a browser-based chatbot designed to detect phishing messages, pro
 
 ---
 
-## 📜 License
-
-This project is open-source and free to use under the [MIT License](https://opensource.org/licenses/MIT).
-
----
-
 ## 🙋‍♀️ Created By
 
 **Yadala Parinitha**  
